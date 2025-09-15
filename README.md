@@ -1,0 +1,1 @@
+Working on an mcp client to make it easier for teams to collaborate using coding tools like mcp by sharing context through a central team focused API KEY.
