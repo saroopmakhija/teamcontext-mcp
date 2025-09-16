@@ -1,11 +1,19 @@
 Working on an mcp client to make it easier for teams to collaborate using coding tools like mcp by sharing context through a central team focused API KEY.
+Goal: Help multiple MCP clients and users to communicate with shared context
+-> Singular user can share context between claude, chatgpt, cursor
+-> Multiple users can access eachother's context via API key
+-> How should we handle API keys? Per user, per project? Permissions? Party b shouldnt be able to access all projects of party A, only what is shared
+-> Every user can have own API key and in the backend server we handle the logic of adding people to projects
+
 
 Project class:
 
 Project_id
 name
+owner_id
+people(?) [user_ids]
 description (to semantic search against)
-data (vector store) (to semantic search)
+data [vector store] (to semantic search)
 
 Flow to find useful context: 
 1. User asks LLM to get information about the OS assignment that him and his friend are working on
