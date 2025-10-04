@@ -6,6 +6,7 @@ app/main.py
 app/db/__init__.py
 app/db/mongodb.py
 app/models/__init__.py
+app/models/chunk.py
 app/models/project.py
 app/models/schemas.py
 app/models/user.py

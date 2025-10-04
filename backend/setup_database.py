@@ -84,6 +84,12 @@ async def create_sample_data(database):
     """Create sample data for testing"""
     print("📝 Creating sample data...")
     
+    # Check if sample user already exists
+    existing_user = await database.users.find_one({"email": "john@example.com"})
+    if existing_user:
+        print("ℹ️  Sample user already exists, skipping sample data creation")
+        return
+    
     # Sample user
     sample_user = {
         "_id": ObjectId(),
@@ -95,12 +101,12 @@ async def create_sample_data(database):
                 "id": str(ObjectId()),
                 "name": "Default Key",
                 "key": "sample_api_key_12345",
-                "created_at": datetime.utcnow()
+                "created_at": datetime.now(datetime.UTC)
             }
         ],
         "projects": [],
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "created_at": datetime.now(datetime.UTC),
+        "updated_at": datetime.now(datetime.UTC)
     }
     
     # Sample project
@@ -112,8 +118,8 @@ async def create_sample_data(database):
         "owner_id": str(sample_user["_id"]),
         "owner_name": sample_user["name"],
         "contributors": [str(sample_user["_id"])],
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "created_at": datetime.now(datetime.UTC),
+        "updated_at": datetime.now(datetime.UTC)
     }
     
     # Sample chunk
@@ -128,8 +134,8 @@ async def create_sample_data(database):
             "tags": ["sample", "test"],
             "word_count": 15
         },
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "created_at": datetime.now(datetime.UTC),
+        "updated_at": datetime.now(datetime.UTC)
     }
     
     # Insert sample data
