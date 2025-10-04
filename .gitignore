@@ -20,3 +20,5 @@ __pycache__/
 /Users/saroopmakhija/teamcontext-mcp/backend/teamcontext_backend.egg-info
 
 frontend/node_modules/
+
+teamcontext_backend.egg-info/

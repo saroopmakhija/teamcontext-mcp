@@ -1,7 +1,8 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 
+# Legacy schemas - keeping for backward compatibility
 class ContextSaveRequest(BaseModel):
     content: str
     project_id: Optional[str] = None
