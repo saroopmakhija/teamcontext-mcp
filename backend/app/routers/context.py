@@ -58,6 +58,8 @@ async def save_context(
         "accessed_count": 0
     }
 
+    
+
     # Insert into MongoDB
     result = await db.contexts.insert_one(context_doc)
 
@@ -131,6 +133,16 @@ async def search_context(
         )
 
     return results
+
+
+@router.get("/{context_id}")
+async def get_context(context_id: str):
+    """Get context by id"""
+    db = get_database()
+    context = await db.contexts.find_one({"_id": ObjectId(context_id)})
+    if not context:
+        raise HTTPException(status_code=404, detail="Context not found")
+    return context["content"]
 
 @router.get("/health")
 async def health_check():
