@@ -1,0 +1,6 @@
+pyproject.toml
+teamcontext_backend.egg-info/PKG-INFO
+teamcontext_backend.egg-info/SOURCES.txt
+teamcontext_backend.egg-info/dependency_links.txt
+teamcontext_backend.egg-info/requires.txt
+teamcontext_backend.egg-info/top_level.txt

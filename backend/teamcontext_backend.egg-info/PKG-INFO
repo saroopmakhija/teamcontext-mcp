@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: teamcontext-backend
+Version: 0.1.0
+Summary: TeamContext API - MCP context sharing backend
+Requires-Python: >=3.10
+Requires-Dist: fastapi>=0.109.0
+Requires-Dist: uvicorn[standard]>=0.27.0
+Requires-Dist: motor>=3.3.2
+Requires-Dist: pydantic>=2.5.0
+Requires-Dist: pydantic-settings>=2.1.0
+Requires-Dist: sentence-transformers>=2.3.1
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: httpx>=0.26.0

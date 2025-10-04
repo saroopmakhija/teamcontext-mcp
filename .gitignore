@@ -7,3 +7,16 @@
 .env.development
 .env.test
 .env.production
+
+__pycache__/
+.DS_Store
+.idea/
+.vscode/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ruff_cache/
+
+/Users/saroopmakhija/teamcontext-mcp/backend/teamcontext_backend.egg-info
+
+frontend/node_modules/
