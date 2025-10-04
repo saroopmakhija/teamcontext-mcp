@@ -1,5 +1,4 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
 from datetime import datetime
 
 class UserCreate(BaseModel):
@@ -11,10 +10,13 @@ class UserResponse(BaseModel):
     id: str
     email: str
     name: str
-    api_keys: List[str]  # List of API keys
-    projects: List[str]  # List of project IDs
+    api_key: str  # Only shown on registration/rotation
     created_at: datetime
-    updated_at: datetime
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
 
 class UserLogin(BaseModel):
     email: EmailStr

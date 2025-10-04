@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, status, Depends
-from app.models.user import UserCreate, UserResponse, UserLogin
+from fastapi import APIRouter, HTTPException, status, Depends, Response
+from app.models.user import UserCreate, UserResponse, UserLogin, TokenResponse
 from app.db.mongodb import get_database
 from app.utils.security import hash_password, verify_password, generate_api_key, hash_api_key
-from app.dependencies import verify_api_key
+from app.dependencies import verify_jwt_or_api_key, verify_refresh_token
+from app.services.jwt_service import create_access_token, create_refresh_token, ACCESS_TOKEN_EXPIRE_HOURS, REFRESH_TOKEN_EXPIRE_HOURS
 from datetime import datetime
 from bson import ObjectId
 
@@ -46,9 +47,9 @@ async def register(user: UserCreate):
         created_at=user_doc["created_at"]
     )
 
-@router.post("/login", response_model=UserResponse)
-async def login(credentials: UserLogin):
-    """Login and get user info (API key cannot be retrieved after registration)"""
+@router.post("/login", response_model=TokenResponse)
+async def login(credentials: UserLogin, response: Response):
+    """Login with email/password and get JWT tokens (set in cookies)"""
     db = get_database()
 
     user = await db.users.find_one({"email": credentials.email})
@@ -58,20 +59,79 @@ async def login(credentials: UserLogin):
             detail="Incorrect email or password"
         )
 
-    return UserResponse(
-        id=str(user["_id"]),
-        email=user["email"],
-        name=user["name"],
-        api_key="***HIDDEN*** (API key only shown once at registration/rotation)",
-        created_at=user["created_at"]
+    user_id = str(user["_id"])
+
+    # Create JWT tokens
+    access_token = create_access_token(user_id)
+    refresh_token = create_refresh_token(user_id)
+
+    # Set cookies with secure flags
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,  # Convert hours to seconds
+        samesite="lax",
+        secure=False  # Set to True in production with HTTPS
     )
 
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        max_age=REFRESH_TOKEN_EXPIRE_HOURS * 3600,  # Convert hours to seconds
+        samesite="lax",
+        secure=False  # Set to True in production with HTTPS
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(response: Response, user_id: str = Depends(verify_refresh_token)):
+    """Refresh access token using refresh token (set in cookies)"""
+    # Create new tokens
+    access_token = create_access_token(user_id)
+    refresh_token = create_refresh_token(user_id)
+
+    # Set cookies with secure flags
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
+        samesite="lax",
+        secure=False
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        max_age=REFRESH_TOKEN_EXPIRE_HOURS * 3600,
+        samesite="lax",
+        secure=False
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
+
+@router.post("/logout")
+async def logout(response: Response):
+    """Logout by clearing JWT cookies"""
+    response.delete_cookie(key="access_token")
+    response.delete_cookie(key="refresh_token")
+    return {"status": "success", "message": "Logged out successfully"}
+
 @router.post("/api-key/rotate", response_model=UserResponse)
-async def rotate_api_key(user_id: str = Depends(verify_api_key)):
-    """Rotate API key for current user"""
+async def rotate_api_key(user_id: str = Depends(verify_jwt_or_api_key)):
+    """Rotate API key for current user (requires JWT or API key auth)"""
     db = get_database()
 
-    # verify_api_key now returns user_id instead of api_key
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(
@@ -102,8 +162,8 @@ async def rotate_api_key(user_id: str = Depends(verify_api_key)):
     )
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user(user_id: str = Depends(verify_api_key)):
-    """Get current user information"""
+async def get_current_user(user_id: str = Depends(verify_jwt_or_api_key)):
+    """Get current user information (requires JWT or API key auth)"""
     db = get_database()
 
     user = await db.users.find_one({"_id": ObjectId(user_id)})

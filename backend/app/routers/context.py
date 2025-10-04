@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.schemas import ContextSaveRequest, ContextSearchRequest, ContextResponse
-from app.dependencies import verify_api_key
+from app.dependencies import verify_jwt_or_api_key
 from app.db.mongodb import get_database
 from app.services.embedding_service import embedding_service
 from datetime import datetime
@@ -9,8 +9,8 @@ from typing import List
 
 router = APIRouter(prefix="/api/v1/context", tags=["context"])
 
-async def get_current_user(user_id: str = Depends(verify_api_key)):
-    """Helper to get current user from user_id"""
+async def get_current_user(user_id: str = Depends(verify_jwt_or_api_key)):
+    """Helper to get current user from user_id (JWT or API key auth)"""
     db = get_database()
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
