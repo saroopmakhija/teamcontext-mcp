@@ -5,6 +5,7 @@ from datetime import datetime
 class ProjectCreate(BaseModel):
     name: str
     description: str
+    owner_id: str
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
@@ -14,11 +15,12 @@ class ProjectResponse(BaseModel):
     id: str
     name: str
     description: str
+    chunks: List[str]  # List of chunk IDs
     owner_id: str
     owner_name: str
-    contributors: List[dict]  # List of {id, name, email}
+    contributors: List[str]  # List of user IDs
     created_at: datetime
     updated_at: datetime
 
 class ContributorAdd(BaseModel):
-    email: str  # Email of user to add
+    user_id: str  # User ID to add as contributor
