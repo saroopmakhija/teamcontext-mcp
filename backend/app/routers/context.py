@@ -9,10 +9,10 @@ from typing import List
 
 router = APIRouter(prefix="/api/v1/context", tags=["context"])
 
-async def get_current_user(api_key: str = Depends(verify_api_key)):
-    """Helper to get current user from API key"""
+async def get_current_user(user_id: str = Depends(verify_api_key)):
+    """Helper to get current user from user_id"""
     db = get_database()
-    user = await db.users.find_one({"api_key": api_key})
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
