@@ -1,5 +1,9 @@
 version = 1
+<<<<<<< HEAD
+revision = 3
+=======
 revision = 2
+>>>>>>> aff132d5bed080978f6746d4a3d6a81b41ee04dc
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.12'",
