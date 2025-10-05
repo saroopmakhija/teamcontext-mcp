@@ -1,0 +1,573 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { projectAPI } from '@/lib/api';
+import { Project } from '@/types/project';
+import { 
+  ArrowLeft, 
+  Users, 
+  Clock, 
+  Search, 
+  UserPlus, 
+  X, 
+  Loader2,
+  FileText,
+  Trash2
+} from 'lucide-react';
+
+interface SearchResult {
+  id: string;
+  content: string;
+  similarity_score: number;
+  metadata: {
+    source?: string;
+    tags?: string[];
+    project_id?: string;
+    created_by?: string;
+  };
+  created_at: string;
+}
+
+export default function ProjectDetailPage() {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const params = useParams();
+  const projectId = params.id as string;
+
+  const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  // Context search states (Chat UI)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [messages, setMessages] = useState<Array<{
+    id: string;
+    type: 'user' | 'bot';
+    content: string;
+    results?: SearchResult[];
+    timestamp: Date;
+  }>>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  
+  // Add contributor states
+  const [showAddContributor, setShowAddContributor] = useState(false);
+  const [contributorEmail, setContributorEmail] = useState('');
+  const [addingContributor, setAddingContributor] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    } else if (!authLoading && isAuthenticated && projectId) {
+      loadProject();
+    }
+  }, [isAuthenticated, authLoading, projectId, router]);
+
+  const loadProject = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await projectAPI.getProject(projectId);
+      setProject(data);
+    } catch (err: any) {
+      console.error('Error loading project:', err);
+      setError(err.response?.data?.detail || 'Failed to load project');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    const userQuery = searchQuery;
+    const userMessageId = Date.now().toString();
+
+    // Add user message
+    setMessages(prev => [...prev, {
+      id: userMessageId,
+      type: 'user',
+      content: userQuery,
+      timestamp: new Date()
+    }]);
+
+    setSearchQuery(''); // Clear input
+    setSearching(true);
+    setSearchError('');
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/context/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          query: userQuery,
+          project_id: projectId,
+          limit: 10,
+          similarity_threshold: 0.5
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+
+      const data = await response.json();
+      const results = data.results || [];
+
+      // Add bot response
+      const botMessage = results.length > 0
+        ? `Found ${results.length} relevant result${results.length !== 1 ? 's' : ''} for "${userQuery}"`
+        : `No results found for "${userQuery}". Try a different query.`;
+
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: botMessage,
+        results: results,
+        timestamp: new Date()
+      }]);
+    } catch (err: any) {
+      console.error('Search error:', err);
+      
+      // Add error message as bot response
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: `Sorry, I couldn't search for that. Please try again.`,
+        timestamp: new Date()
+      }]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleAddContributor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contributorEmail.trim()) return;
+
+    try {
+      setAddingContributor(true);
+      setError('');
+      await projectAPI.addContributor(projectId, { email: contributorEmail });
+      setContributorEmail('');
+      setShowAddContributor(false);
+      await loadProject(); // Reload to show new contributor
+    } catch (err: any) {
+      console.error('Error adding contributor:', err);
+      setError(err.response?.data?.detail || 'Failed to add contributor');
+    } finally {
+      setAddingContributor(false);
+    }
+  };
+
+  const handleRemoveContributor = async (userId: string) => {
+    if (!confirm('Are you sure you want to remove this contributor?')) return;
+
+    try {
+      await projectAPI.removeContributor(projectId, userId);
+      await loadProject(); // Reload to update contributor list
+    } catch (err: any) {
+      console.error('Error removing contributor:', err);
+      setError(err.response?.data?.detail || 'Failed to remove contributor');
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50 flex items-center justify-center">
+        <div className="backdrop-blur-xl bg-white/70 rounded-3xl shadow-2xl p-8 border border-white/60">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-blue-600 font-medium">Loading project...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50 flex items-center justify-center p-4">
+        <div className="backdrop-blur-xl bg-white/70 rounded-3xl shadow-2xl p-8 border border-white/60 text-center">
+          <p className="text-red-600 font-medium mb-4">{error || 'Project not found'}</p>
+          <button
+            onClick={() => router.push('/projects')}
+            className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg"
+          >
+            Back to Projects
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isOwner = project.owner_id === user?.id;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50 relative overflow-hidden">
+      {/* Animated gradient mesh background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Large animated orbs */}
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-blue-400/30 to-cyan-400/30 rounded-full blur-3xl animate-blob"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-purple-400/30 to-pink-400/30 rounded-full blur-3xl animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-gradient-to-br from-cyan-400/30 to-teal-400/30 rounded-full blur-3xl animate-blob animation-delay-4000"></div>
+        <div className="absolute bottom-20 right-1/4 w-80 h-80 bg-gradient-to-br from-indigo-400/30 to-blue-400/30 rounded-full blur-3xl animate-blob animation-delay-6000"></div>
+        
+        {/* Floating particles */}
+        <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-blue-400/40 rounded-full animate-float"></div>
+        <div className="absolute top-1/3 right-1/3 w-3 h-3 bg-purple-400/40 rounded-full animate-float animation-delay-1000"></div>
+        <div className="absolute bottom-1/3 left-1/2 w-2 h-2 bg-cyan-400/40 rounded-full animate-float animation-delay-2000"></div>
+        <div className="absolute top-2/3 right-1/4 w-2 h-2 bg-pink-400/40 rounded-full animate-float animation-delay-3000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-teal-400/40 rounded-full animate-float animation-delay-4000"></div>
+        
+        {/* Grid overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:64px_64px]"></div>
+        
+        {/* Radial gradient overlay */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),rgba(255,255,255,0))]"></div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-8 py-8 relative z-10">
+        {/* Header */}
+        <div className="backdrop-blur-xl bg-white/70 rounded-3xl shadow-lg p-6 mb-6 border border-white/60 hover:shadow-[0_20px_60px_-15px_rgba(59,130,246,0.3)] transition-all duration-500">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/projects')}
+                className="p-2 hover:bg-blue-100/50 rounded-xl transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6 text-blue-600" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-blue-900">{project.name}</h1>
+                <p className="text-sm text-blue-600/70">
+                  Owner: {project.owner_name} • Created {formatDate(project.created_at)}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-blue-600/70">
+              <Users className="w-4 h-4" />
+              <span>{(project.contributors?.length || 0) + 1} members</span>
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <div className="backdrop-blur-xl bg-red-50/80 border border-red-300/50 text-red-700 px-4 py-3 rounded-xl mb-6">
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Project Info & Contributors */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Description */}
+            <div className="backdrop-blur-xl bg-white/70 rounded-2xl shadow-lg p-6 border border-white/60 hover:shadow-[0_20px_50px_-15px_rgba(59,130,246,0.4)] transition-all duration-300 hover:-translate-y-1">
+              <h2 className="text-xl font-bold text-blue-900 mb-3">Description</h2>
+              <p className="text-blue-700 leading-relaxed">
+                {project.description || 'No description provided'}
+              </p>
+            </div>
+
+            {/* Contributors */}
+            <div className="backdrop-blur-xl bg-white/70 rounded-2xl shadow-lg p-6 border border-white/60 hover:shadow-[0_20px_50px_-15px_rgba(59,130,246,0.4)] transition-all duration-300 hover:-translate-y-1">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-blue-900">Contributors</h2>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowAddContributor(!showAddContributor)}
+                    className="p-2 hover:bg-blue-100/50 rounded-lg transition-colors"
+                  >
+                    {showAddContributor ? <X className="w-5 h-5 text-blue-600" /> : <UserPlus className="w-5 h-5 text-blue-600" />}
+                  </button>
+                )}
+              </div>
+
+              {/* Add Contributor Form */}
+              {showAddContributor && (
+                <form onSubmit={handleAddContributor} className="mb-4">
+                  <input
+                    type="email"
+                    value={contributorEmail}
+                    onChange={(e) => setContributorEmail(e.target.value)}
+                    placeholder="Enter email address"
+                    className="w-full px-4 py-2 rounded-xl border border-blue-200/50 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-400 mb-2 text-black font-medium placeholder:text-gray-400"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={addingContributor}
+                    className="w-full bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white px-4 py-2 rounded-xl font-semibold transition-all shadow-lg disabled:opacity-50"
+                  >
+                    {addingContributor ? 'Adding...' : 'Add Contributor'}
+                  </button>
+                </form>
+              )}
+
+              {/* Owner */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-full flex items-center justify-center">
+                      <Users className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-blue-900">{project.owner_name}</p>
+                      <p className="text-xs text-blue-600/70">Owner</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contributors List */}
+                {project.contributors?.map((contributor: any) => (
+                  <div key={contributor.id} className="flex items-center justify-between p-3 bg-blue-50/50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-full flex items-center justify-center">
+                        <Users className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-black">{contributor.name}</p>
+                        <p className="text-xs text-gray-800 font-medium">{contributor.email}</p>
+                      </div>
+                    </div>
+                    {isOwner && (
+                      <button
+                        onClick={() => handleRemoveContributor(contributor.id)}
+                        className="p-1 hover:bg-red-100/50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Context Chat */}
+          <div className="lg:col-span-2">
+            <div className="backdrop-blur-xl bg-gradient-to-br from-emerald-50/80 to-teal-50/80 rounded-2xl shadow-xl border border-emerald-200/50 flex flex-col" style={{ height: '600px' }}>
+              <div className="p-6 border-b border-emerald-200/50">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 via-teal-400 to-green-400 bg-clip-text text-transparent" style={{ textShadow: '0 0 40px rgba(16, 185, 129, 0.5), 0 0 20px rgba(20, 184, 166, 0.3)' }}>
+                  Context Chat
+                </h2>
+                <p className="text-base font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent mt-1" style={{ textShadow: '0 0 30px rgba(16, 185, 129, 0.4)' }}>
+                  Ask questions about your project
+                </p>
+              </div>
+              
+              {/* Chat Messages */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center max-w-2xl">
+                      <h3 className="text-5xl font-bold bg-gradient-to-r from-emerald-400 via-teal-400 to-green-400 bg-clip-text text-transparent mb-4" style={{ textShadow: '0 0 40px rgba(16, 185, 129, 0.5), 0 0 20px rgba(20, 184, 166, 0.3)' }}>
+                        Hi, {user?.name ? user.name.charAt(0).toUpperCase() + user.name.slice(1).toLowerCase() : 'there'}!
+                      </h3>
+                      <p className="text-2xl font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent" style={{ textShadow: '0 0 30px rgba(16, 185, 129, 0.4)' }}>
+                        How can I help you today?
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  messages.map((message) => (
+                    <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[80%] ${message.type === 'user' ? 'order-2' : 'order-1'}`}>
+                        {/* Message Bubble */}
+                        <div className={`rounded-2xl p-4 ${
+                          message.type === 'user'
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white'
+                            : 'bg-white/90 backdrop-blur-sm border border-emerald-200/50 text-gray-900'
+                        } shadow-lg`}>
+                          <p className="text-sm font-medium">{message.content}</p>
+                          <p className="text-xs mt-1 opacity-70">
+                            {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+
+                        {/* Bot Results */}
+                        {message.type === 'bot' && message.results && message.results.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {message.results.map((result) => (
+                              <div
+                                key={result.id}
+                                className="bg-white/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200/30 hover:shadow-lg transition-shadow"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <FileText className="w-5 h-5 text-emerald-600 mt-1 flex-shrink-0" />
+                                  <div className="flex-1">
+                                    <p className="text-sm text-gray-800 mb-2">{result.content}</p>
+                                    <div className="flex items-center gap-3 text-xs text-gray-600">
+                                      <span className="font-semibold text-emerald-600">
+                                        {(result.similarity_score * 100).toFixed(0)}% match
+                                      </span>
+                                      {result.metadata.source && (
+                                        <span>• {result.metadata.source}</span>
+                                      )}
+                                    </div>
+                                    {result.metadata.tags && result.metadata.tags.length > 0 && (
+                                      <div className="flex gap-2 mt-2 flex-wrap">
+                                        {result.metadata.tags.map((tag, idx) => (
+                                          <span
+                                            key={idx}
+                                            className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-lg"
+                                          >
+                                            {tag}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {/* Typing Indicator */}
+                {searching && (
+                  <div className="flex justify-start">
+                    <div className="bg-white/90 backdrop-blur-sm border border-emerald-200/50 rounded-2xl p-4 shadow-lg">
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce animation-delay-200"></div>
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce animation-delay-400"></div>
+                        </div>
+                        <span className="text-xs text-gray-600">Searching...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Input Form */}
+              <form onSubmit={handleSearch} className="p-4 border-t border-emerald-200/50">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Ask about project context..."
+                    className="flex-1 px-4 py-3 rounded-xl border border-emerald-200/50 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 text-black font-medium placeholder:text-gray-400"
+                    disabled={searching}
+                  />
+                  <button
+                    type="submit"
+                    disabled={searching || !searchQuery.trim()}
+                    className="bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-500 hover:to-teal-500 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                  >
+                    <Search className="w-5 h-5" />
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        {/* Separator Line */}
+        <div className="my-8">
+          <div className="h-px bg-gradient-to-r from-transparent via-blue-200/50 to-transparent"></div>
+        </div>
+
+        {/* Knowledge Graph Section */}
+        <div className="backdrop-blur-xl bg-white/70 rounded-2xl shadow-lg p-8 border border-white/60 hover:shadow-[0_20px_50px_-15px_rgba(59,130,246,0.4)] transition-all duration-300">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-xl flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Knowledge Graph</h2>
+              <p className="text-sm text-gray-600">Interactive visualization of project knowledge connections</p>
+            </div>
+          </div>
+
+          {/* Graph Container */}
+          <div className="relative bg-gradient-to-br from-indigo-50/50 to-purple-50/50 rounded-xl border-2 border-indigo-200/50 overflow-hidden" style={{ height: '500px' }}>
+            {/* Coming Soon Placeholder */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="backdrop-blur-sm bg-white/80 rounded-2xl p-8 shadow-xl border border-white/60 max-w-md mx-auto text-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <svg className="w-10 h-10 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Knowledge Graph Coming Soon</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Interactive node-based visualization will show:
+                </p>
+                <div className="text-left space-y-2 text-sm text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                    <span>Zoomable network of knowledge nodes</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span>Hover to see detailed information</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+                    <span>Interactive connections and relationships</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span>Real-time data exploration</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Decorative Grid Background */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080801a_1px,transparent_1px),linear-gradient(to_bottom,#8080801a_1px,transparent_1px)] bg-[size:32px_32px]"></div>
+            
+            {/* Decorative Animated Dots */}
+            <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-indigo-400/40 rounded-full animate-pulse"></div>
+            <div className="absolute top-1/3 right-1/3 w-2 h-2 bg-purple-400/40 rounded-full animate-pulse animation-delay-1000"></div>
+            <div className="absolute bottom-1/3 left-1/2 w-2 h-2 bg-pink-400/40 rounded-full animate-pulse animation-delay-2000"></div>
+            <div className="absolute top-2/3 right-1/4 w-3 h-3 bg-blue-400/40 rounded-full animate-pulse animation-delay-3000"></div>
+          </div>
+
+          {/* Graph Controls Placeholder */}
+          <div className="mt-4 flex items-center justify-between">
+            <div className="flex gap-2">
+              <button className="px-4 py-2 bg-gradient-to-r from-indigo-400 to-purple-400 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 opacity-50 cursor-not-allowed" disabled>
+                Zoom In
+              </button>
+              <button className="px-4 py-2 bg-gradient-to-r from-indigo-400 to-purple-400 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 opacity-50 cursor-not-allowed" disabled>
+                Zoom Out
+              </button>
+              <button className="px-4 py-2 bg-gradient-to-r from-indigo-400 to-purple-400 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 opacity-50 cursor-not-allowed" disabled>
+                Reset View
+              </button>
+            </div>
+            <div className="text-sm text-gray-600">
+              <span className="font-semibold">Ready for API integration</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
