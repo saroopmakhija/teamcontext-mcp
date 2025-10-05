@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from google import genai
+import google.genai as genai
 from typing import Union, List
 from dotenv import load_dotenv
 
