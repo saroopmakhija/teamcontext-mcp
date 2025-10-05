@@ -12,3 +12,5 @@ pymongo>=4.15.2
 plotly>=5.22.0
 sentence-transformers>=5.1.1
 snowflake>=1.8.0
+google-genai>=1.0.0
+numpy>=1.24.0

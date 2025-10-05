@@ -17,3 +17,6 @@ Requires-Dist: pymongo>=4.15.2
 Requires-Dist: plotly>=5.22.0
 Requires-Dist: sentence-transformers>=5.1.1
 Requires-Dist: snowflake>=1.8.0
+Requires-Dist: pytest>=8.4.2
+Requires-Dist: google-generativeai>=0.8.5
+Requires-Dist: google-genai>=1.41.0

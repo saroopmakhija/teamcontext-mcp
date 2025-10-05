@@ -18,6 +18,9 @@ dependencies = [
     "plotly>=5.22.0",
     "sentence-transformers>=5.1.1",
     "snowflake>=1.8.0",
+    "pytest>=8.4.2",
+    "google-generativeai>=0.8.5",
+    "google-genai>=1.41.0",
 ]
 
 [build-system]

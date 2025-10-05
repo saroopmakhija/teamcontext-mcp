@@ -18,8 +18,12 @@ app/routers/graphs.py
 app/routers/projects.py
 app/services/__init__.py
 app/services/auth_service.py
+app/services/chunking.py
 app/services/embedding_service.py
+app/services/gemini.py
 app/services/jwt_service.py
+app/services/llm_service.py
+app/services/snowflake_user_service.py
 app/utils/graph.py
 app/utils/security.py
 teamcontext_backend.egg-info/PKG-INFO
@@ -27,3 +31,8 @@ teamcontext_backend.egg-info/SOURCES.txt
 teamcontext_backend.egg-info/dependency_links.txt
 teamcontext_backend.egg-info/requires.txt
 teamcontext_backend.egg-info/top_level.txt
+tests/test_chunking.py
+tests/test_rag_chatbot.py
+tests/test_rag_comprehensive.py
+tests/test_rag_rate_limited.py
+tests/test_rag_ultra_comprehensive.py
