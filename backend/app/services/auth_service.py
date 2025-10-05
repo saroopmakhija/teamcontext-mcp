@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 from typing import Optional
+from app.services.snowflake_user_service import bump_usage_stats
 from app.db.mongodb import get_database
 from app.utils.security import verify_api_key as verify_api_key_hash
 from app.services.jwt_service import verify_token
@@ -15,6 +16,15 @@ class AuthService:
     def __init__(self):
         self.user_id: Optional[str] = None
         self.user: Optional[dict] = None
+
+    async def _set_authenticated_user(self, user: dict) -> str:
+        user_id = str(user["_id"])
+        self.user_id = user_id
+        self.user = user
+        email = user.get("email")
+        if email:
+            await bump_usage_stats(email)
+        return user_id
 
     async def authenticate(
         self,
@@ -42,9 +52,7 @@ class AuthService:
                 db = get_database()
                 user = await db.users.find_one({"_id": ObjectId(user_id)})
                 if user:
-                    self.user_id = user_id
-                    self.user = user
-                    return user_id
+                    return await self._set_authenticated_user(user)
 
         # Priority 2: Check Authorization header
         if token:
@@ -54,19 +62,14 @@ class AuthService:
                 db = get_database()
                 user = await db.users.find_one({"_id": ObjectId(user_id)})
                 if user:
-                    self.user_id = user_id
-                    self.user = user
-                    return user_id
+                    return await self._set_authenticated_user(user)
 
             # Try API key verification
             db = get_database()
             users = await db.users.find({}).to_list(length=None)
             for user in users:
                 if "hashed_api_key" in user and verify_api_key_hash(token, user["hashed_api_key"]):
-                    user_id = str(user["_id"])
-                    self.user_id = user_id
-                    self.user = user
-                    return user_id
+                    return await self._set_authenticated_user(user)
 
         # No valid authentication found
         raise HTTPException(

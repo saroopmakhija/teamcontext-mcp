@@ -1,6 +1,7 @@
 from fastapi import Header, HTTPException, status, Depends, Cookie, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
+from app.services.snowflake_user_service import bump_usage_stats
 from app.db.mongodb import get_database
 from app.utils.security import verify_api_key as verify_api_key_hash
 from app.services.jwt_service import verify_token
@@ -48,6 +49,9 @@ async def verify_api_key(authorization: str = Header(...)):
 
     for user in users:
         if "hashed_api_key" in user and verify_api_key_hash(plain_api_key, user["hashed_api_key"]):
+            email = user.get("email")
+            if email:
+                await bump_usage_stats(email)
             return str(user["_id"])
 
     raise HTTPException(
@@ -97,6 +101,10 @@ async def verify_jwt_token(
             detail="User not found"
         )
 
+    email = user.get("email")
+    if email:
+        await bump_usage_stats(email)
+
     return user_id
 
 
@@ -139,6 +147,10 @@ async def verify_refresh_token(
             detail="User not found"
         )
 
+    email = user.get("email")
+    if email:
+        await bump_usage_stats(email)
+
     return user_id
 
 
@@ -159,6 +171,9 @@ async def verify_jwt_or_api_key(
             db = get_database()
             user = await db.users.find_one({"_id": ObjectId(user_id)})
             if user:
+                email = user.get("email")
+                if email:
+                    await bump_usage_stats(email)
                 return user_id
 
     if credentials:
@@ -169,12 +184,18 @@ async def verify_jwt_or_api_key(
             db = get_database()
             user = await db.users.find_one({"_id": ObjectId(user_id)})
             if user:
+                email = user.get("email")
+                if email:
+                    await bump_usage_stats(email)
                 return user_id
 
         db = get_database()
         users = await db.users.find({}).to_list(length=None)
         for user in users:
             if "hashed_api_key" in user and verify_api_key_hash(token, user["hashed_api_key"]):
+                email = user.get("email")
+                if email:
+                    await bump_usage_stats(email)
                 return str(user["_id"])
 
     raise HTTPException(
