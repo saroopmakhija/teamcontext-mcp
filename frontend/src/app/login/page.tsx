@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { APP_CONFIG } from '@/config/constants';
 import { Eye, EyeOff, Mail, Lock, User, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -39,8 +39,8 @@ export default function LoginPage() {
         setError('Name is required');
         return false;
       }
-      if (formData.name.trim().length < 2) {
-        setError('Name must be at least 2 characters');
+      if (formData.name.trim().length < APP_CONFIG.validation.minNameLength) {
+        setError(`Name must be at least ${APP_CONFIG.validation.minNameLength} characters`);
         return false;
       }
       if (formData.password !== formData.confirmPassword) {
@@ -59,8 +59,8 @@ export default function LoginPage() {
       return false;
     }
     
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (formData.password.length < APP_CONFIG.validation.minPasswordLength) {
+      setError(`Password must be at least ${APP_CONFIG.validation.minPasswordLength} characters`);
       return false;
     }
 
@@ -82,18 +82,18 @@ export default function LoginPage() {
         setSuccess('Login successful! Redirecting...');
         setTimeout(() => {
           router.push('/dashboard');
-        }, 1000);
+        }, APP_CONFIG.timeouts.loginRedirect);
       } else {
         const apiKey = await register(formData.name, formData.email, formData.password);
         setSuccess(`Registration successful! Your API key is: ${apiKey}. Please save it securely.`);
         setTimeout(() => {
           setIsLogin(true);
           setFormData(prev => ({ ...prev, name: '', confirmPassword: '' }));
-        }, 5000);
+        }, APP_CONFIG.timeouts.registerMessageDisplay);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Auth error:', err);
-      setError(err.message || 'An error occurred');
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -117,7 +117,7 @@ export default function LoginPage() {
         <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-teal-400/40 rounded-full animate-float animation-delay-4000"></div>
         
         {/* Grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:64px_64px]"></div>
+        <div className={`absolute inset-0 bg-[linear-gradient(to_right,#80808018_1px,transparent_1px),linear-gradient(to_bottom,#80808018_1px,transparent_1px)] bg-[size:64px_64px]`}></div>
         
         {/* Radial gradient overlay */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),rgba(255,255,255,0))]"></div>
@@ -131,9 +131,9 @@ export default function LoginPage() {
               <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-2xl flex items-center justify-center shadow-lg">
                 <User className="w-7 h-7 text-white" />
               </div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">TeamContext</h1>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">{APP_CONFIG.name}</h1>
             </div>
-            <p className="text-blue-600/80 font-medium">Share context across your team</p>
+            <p className="text-blue-600/80 font-medium">{APP_CONFIG.tagline}</p>
           </div>
 
           {/* Tabs */}

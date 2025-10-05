@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { projectAPI } from '@/lib/api';
 import { Project } from '@/types/project';
-import { LogOut, User, Mail, Key, Loader2, ChevronDown, FolderOpen, Users, Clock, Info, Search, BookOpen, Zap, Shield } from 'lucide-react';
+import { LogOut, User, Mail, Key, Loader2, ChevronDown, FolderOpen, Users, Clock, Info, BarChart3 } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
@@ -92,7 +92,7 @@ export default function DashboardPage() {
         <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-teal-400/40 rounded-full animate-float animation-delay-4000"></div>
         
         {/* Grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:64px_64px]"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808018_1px,transparent_1px),linear-gradient(to_bottom,#80808018_1px,transparent_1px)] bg-[size:64px_64px]"></div>
         
         {/* Radial gradient overlay */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),rgba(255,255,255,0))]"></div>
@@ -100,21 +100,83 @@ export default function DashboardPage() {
 
       {/* Navbar with rounded edges */}
       <div className="relative z-20 px-8 pt-6">
-        <div className="max-w-7xl mx-auto backdrop-blur-xl bg-white/70 rounded-3xl shadow-2xl border border-white/60 px-8 py-6 hover:shadow-[0_20px_60px_-15px_rgba(59,130,246,0.3)] transition-all duration-500">
-          <div className="flex justify-between items-center">
-            <div className="flex-1">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">Welcome to TeamContext!</h1>
-              <p className="text-blue-600/70 text-base font-light tracking-wide">Manage your team's context and knowledge sharing</p>
+        <div className="max-w-7xl mx-auto backdrop-blur-xl bg-white/70 rounded-3xl shadow-lg border border-white/60 px-8 py-6 hover:shadow-xl transition-all duration-500">
+          <div className="flex items-center">
+            <div className="flex-1 flex items-center gap-4">
+              {/* Animated Logo Icon */}
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-cyan-500 to-purple-600 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-gradient-xy"></div>
+                <div className="relative w-16 h-16 bg-gradient-to-br from-blue-600 via-cyan-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-all duration-300">
+                  <div className="relative">
+                    {/* DNA Helix / Data Stream Icon */}
+                    <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2L2 7l10 5 10-5-10-5z" className="animate-pulse" />
+                      <path d="M2 17l10 5 10-5" />
+                      <path d="M2 12l10 5 10-5" />
+                    </svg>
+                    {/* Animated particles */}
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full animate-ping"></div>
+                    <div className="absolute -bottom-1 -left-1 w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping animation-delay-200"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Brand Name with Animation */}
+              <div className="relative">
+                <div className="flex items-baseline gap-1">
+                  <h1 className="text-5xl font-black tracking-tight relative">
+                    <span className="relative inline-block">
+                      <span className="bg-gradient-to-r from-blue-600 via-cyan-500 to-purple-600 bg-clip-text text-transparent animate-gradient-x">
+                        D
+                      </span>
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
+                    </span>
+                    <span className="text-blue-600/20 mx-0.5">-</span>
+                    <span className="bg-gradient-to-r from-cyan-500 via-purple-600 to-pink-500 bg-clip-text text-transparent animate-gradient-x">
+                      RAG
+                    </span>
+                  </h1>
+                  <div className="flex flex-col gap-0.5 ml-1">
+                    <div className="w-1 h-1 bg-cyan-500 rounded-full animate-pulse"></div>
+                    <div className="w-1 h-1 bg-purple-500 rounded-full animate-pulse animation-delay-100"></div>
+                    <div className="w-1 h-1 bg-pink-500 rounded-full animate-pulse animation-delay-200"></div>
+                  </div>
+                </div>
+                
+                {/* Subtitle with enhanced styling */}
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="h-px w-8 bg-gradient-to-r from-transparent via-cyan-500 to-transparent"></div>
+                  <p className="text-sm font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-600 tracking-wide">
+                    Dynamic Retrieval-Augmented Generation
+                  </p>
+                  <div className="h-px w-8 bg-gradient-to-r from-transparent via-cyan-500 to-transparent"></div>
+                </div>
+                
+                {/* Ultra-subtle tagline */}
+                <p className="text-xs text-blue-600/60 tracking-wider mt-0.5 font-medium">
+                  Intelligent Context Management Platform
+                </p>
+              </div>
             </div>
 
-            {/* About Link */}
-            <button
-              onClick={() => router.push('/about')}
-              className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-blue-400/30 hover:shadow-2xl hover:shadow-blue-400/50 transform hover:-translate-y-1 hover:scale-105 active:scale-95 flex items-center gap-2"
-            >
-              <Info className="w-5 h-5" />
-              About Us
-            </button>
+            {/* Navigation Buttons */}
+            <div className="flex items-center gap-3 mr-6">
+              <button
+                onClick={() => router.push('/analytics')}
+                className="bg-gradient-to-r from-purple-400 to-pink-400 hover:from-purple-500 hover:to-pink-500 text-white px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-purple-400/30 hover:shadow-2xl hover:shadow-purple-400/50 transform hover:-translate-y-1 hover:scale-105 active:scale-95 flex items-center gap-2"
+              >
+                <BarChart3 className="w-5 h-5" />
+                Analytics
+              </button>
+              
+              <button
+                onClick={() => router.push('/about')}
+                className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-blue-400/30 hover:shadow-2xl hover:shadow-blue-400/50 transform hover:-translate-y-1 hover:scale-105 active:scale-95 flex items-center gap-2"
+              >
+                <Info className="w-5 h-5" />
+                About Us
+              </button>
+            </div>
             
             {/* Profile Dropdown */}
             <div className="relative">
@@ -195,11 +257,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-8 relative z-10">
+      <div className="max-w-7xl mx-auto py-8 relative z-10">
         {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1px_1fr] gap-6 px-8 items-start">
           {/* Left Column - Features */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="space-y-6 lg:-ml-8">
             {/* API Access Card */}
             <div 
               onClick={() => router.push('/api-access')}
@@ -279,12 +341,17 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Vertical Divider */}
+          <div className="hidden lg:flex justify-center h-full min-h-[600px]">
+            <div className="w-px h-full bg-gradient-to-b from-transparent via-blue-300/60 to-transparent shadow-[0_0_8px_rgba(59,130,246,0.15)]"></div>
+          </div>
+
           {/* Right Column - Projects Section */}
-          <div className="lg:col-span-2">
+          <div className="flex-1">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-1">Your Projects</h2>
-                <p className="text-blue-600/70 text-sm font-light tracking-wide">Recent projects you're working on</p>
+                <p className="text-blue-600/70 text-sm font-light tracking-wide">Recent projects you&apos;re working on</p>
               </div>
               <button
                 onClick={() => router.push('/projects')}
@@ -331,7 +398,7 @@ export default function DashboardPage() {
                     </div>
 
                     {project.description && (
-                      <p className="text-blue-600/70 text-sm mb-3 line-clamp-2">{project.description}</p>
+                      <p className="font-[family-name:var(--font-jakarta)] text-transparent bg-clip-text bg-gradient-to-r from-blue-700 via-cyan-600 to-purple-600 text-sm font-medium mb-3 line-clamp-2 leading-relaxed">{project.description}</p>
                     )}
 
                     <div className="flex items-center justify-between text-xs text-blue-600/60">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { projectAPI } from '@/lib/api';
 import { Project, ProjectCreate } from '@/types/project';
+import { APP_CONFIG } from '@/config/constants';
 import { Plus, FolderOpen, Users, Trash2, Edit2, X, Loader2, ArrowLeft } from 'lucide-react';
 
 export default function ProjectsPage() {
@@ -38,9 +39,10 @@ export default function ProjectsPage() {
       setLoading(true);
       const data = await projectAPI.getProjects();
       setProjects(data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading projects:', err);
-      setError(err.response?.data?.detail || 'Failed to load projects');
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Failed to load projects');
     } finally {
       setLoading(false);
     }
@@ -61,9 +63,10 @@ export default function ProjectsPage() {
       setProjects([...projects, created]);
       setShowCreateModal(false);
       setNewProject({ name: '', description: '' });
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error creating project:', err);
-      setError(err.response?.data?.detail || 'Failed to create project');
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Failed to create project');
     } finally {
       setCreating(false);
     }
@@ -77,9 +80,10 @@ export default function ProjectsPage() {
       setProjects(projects.filter(p => p.id !== projectToDelete.id));
       setShowDeleteModal(false);
       setProjectToDelete(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error deleting project:', err);
-      setError(err.response?.data?.detail || 'Failed to delete project');
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Failed to delete project');
       setShowDeleteModal(false);
     }
   };
@@ -117,7 +121,7 @@ export default function ProjectsPage() {
         <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-teal-400/40 rounded-full animate-float animation-delay-4000"></div>
         
         {/* Grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:64px_64px]"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808018_1px,transparent_1px),linear-gradient(to_bottom,#80808018_1px,transparent_1px)] bg-[size:64px_64px]"></div>
         
         {/* Radial gradient overlay */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),rgba(255,255,255,0))]"></div>
@@ -136,7 +140,7 @@ export default function ProjectsPage() {
               </button>
               <div>
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">Your Projects</h1>
-                <p className="text-blue-600/70 text-base font-light tracking-wide">Manage your team's context projects</p>
+                <p className="text-blue-600/70 text-base font-light tracking-wide">Manage your team&apos;s context projects</p>
               </div>
             </div>
             <button
@@ -187,7 +191,7 @@ export default function ProjectsPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          alert('Edit feature coming soon!');
+                          alert(APP_CONFIG.messages.editFeatureComingSoon);
                         }}
                         className="p-2 hover:bg-blue-100/50 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
                       >
@@ -302,6 +306,9 @@ export default function ProjectsPage() {
               </div>
 
               <div className="backdrop-blur-sm bg-red-50/80 rounded-2xl p-4 mb-6 border border-red-200/50">
+                <p className="text-gray-700 text-sm mb-2">
+                  {APP_CONFIG.messages.confirmDeleteProject}
+                </p>
                 <p className="text-gray-700 text-sm mb-2">
                   You are about to delete:
                 </p>

@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { projectAPI } from '@/lib/api';
+import { projectAPI, contextAPI } from '@/lib/api';
 import { Project } from '@/types/project';
+import { APP_CONFIG } from '@/config/constants';
+import KnowledgeGraph from '@/components/KnowledgeGraph';
 import { 
   ArrowLeft, 
   Users, 
-  Clock, 
   Search, 
   UserPlus, 
   X, 
@@ -50,7 +51,6 @@ export default function ProjectDetailPage() {
     timestamp: Date;
   }>>([]);
   const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState('');
   
   // Add contributor states
   const [showAddContributor, setShowAddContributor] = useState(false);
@@ -63,6 +63,7 @@ export default function ProjectDetailPage() {
     } else if (!authLoading && isAuthenticated && projectId) {
       loadProject();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, authLoading, projectId, router]);
 
   const loadProject = async () => {
@@ -71,9 +72,10 @@ export default function ProjectDetailPage() {
       setError('');
       const data = await projectAPI.getProject(projectId);
       setProject(data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading project:', err);
-      setError(err.response?.data?.detail || 'Failed to load project');
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Failed to load project');
     } finally {
       setLoading(false);
     }
@@ -96,30 +98,14 @@ export default function ProjectDetailPage() {
 
     setSearchQuery(''); // Clear input
     setSearching(true);
-    setSearchError('');
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/context/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          query: userQuery,
-          project_id: projectId,
-          limit: 10,
-          similarity_threshold: 0.5
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Search failed');
-      }
-
-      const data = await response.json();
-      const results = data.results || [];
+      const results = await contextAPI.search(
+        userQuery, 
+        projectId as string, 
+        APP_CONFIG.search.similarityThreshold, 
+        APP_CONFIG.search.defaultLimit
+      );
 
       // Add bot response
       const botMessage = results.length > 0
@@ -133,7 +119,7 @@ export default function ProjectDetailPage() {
         results: results,
         timestamp: new Date()
       }]);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Search error:', err);
       
       // Add error message as bot response
@@ -159,23 +145,25 @@ export default function ProjectDetailPage() {
       setContributorEmail('');
       setShowAddContributor(false);
       await loadProject(); // Reload to show new contributor
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error adding contributor:', err);
-      setError(err.response?.data?.detail || 'Failed to add contributor');
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Failed to add contributor');
     } finally {
       setAddingContributor(false);
     }
   };
 
   const handleRemoveContributor = async (userId: string) => {
-    if (!confirm('Are you sure you want to remove this contributor?')) return;
+    if (!confirm(APP_CONFIG.messages.confirmRemoveContributor)) return;
 
     try {
       await projectAPI.removeContributor(projectId, userId);
       await loadProject(); // Reload to update contributor list
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error removing contributor:', err);
-      setError(err.response?.data?.detail || 'Failed to remove contributor');
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Failed to remove contributor');
     }
   };
 
@@ -236,7 +224,7 @@ export default function ProjectDetailPage() {
         <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-teal-400/40 rounded-full animate-float animation-delay-4000"></div>
         
         {/* Grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:64px_64px]"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808018_1px,transparent_1px),linear-gradient(to_bottom,#80808018_1px,transparent_1px)] bg-[size:64px_64px]"></div>
         
         {/* Radial gradient overlay */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),rgba(255,255,255,0))]"></div>
@@ -334,7 +322,7 @@ export default function ProjectDetailPage() {
                 </div>
 
                 {/* Contributors List */}
-                {project.contributors?.map((contributor: any) => (
+                {project.contributors?.map((contributor: { id: string; name: string; email: string }) => (
                   <div key={contributor.id} className="flex items-center justify-between p-3 bg-blue-50/50 rounded-xl">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-full flex items-center justify-center">
@@ -361,7 +349,7 @@ export default function ProjectDetailPage() {
 
           {/* Right Column - Context Chat */}
           <div className="lg:col-span-2">
-            <div className="backdrop-blur-xl bg-gradient-to-br from-emerald-50/80 to-teal-50/80 rounded-2xl shadow-xl border border-emerald-200/50 flex flex-col" style={{ height: '600px' }}>
+            <div className="backdrop-blur-xl bg-gradient-to-br from-emerald-50/80 to-teal-50/80 rounded-2xl shadow-xl border border-emerald-200/50 flex flex-col" style={{ height: APP_CONFIG.ui.chatHeight }}>
               <div className="p-6 border-b border-emerald-200/50">
                 <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 via-teal-400 to-green-400 bg-clip-text text-transparent" style={{ textShadow: '0 0 40px rgba(16, 185, 129, 0.5), 0 0 20px rgba(20, 184, 166, 0.3)' }}>
                   Context Chat
@@ -504,67 +492,7 @@ export default function ProjectDetailPage() {
           </div>
 
           {/* Graph Container */}
-          <div className="relative bg-gradient-to-br from-indigo-50/50 to-purple-50/50 rounded-xl border-2 border-indigo-200/50 overflow-hidden" style={{ height: '500px' }}>
-            {/* Coming Soon Placeholder */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="backdrop-blur-sm bg-white/80 rounded-2xl p-8 shadow-xl border border-white/60 max-w-md mx-auto text-center">
-                <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <svg className="w-10 h-10 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Knowledge Graph Coming Soon</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Interactive node-based visualization will show:
-                </p>
-                <div className="text-left space-y-2 text-sm text-gray-700">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                    <span>Zoomable network of knowledge nodes</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    <span>Hover to see detailed information</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
-                    <span>Interactive connections and relationships</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span>Real-time data exploration</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Decorative Grid Background */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080801a_1px,transparent_1px),linear-gradient(to_bottom,#8080801a_1px,transparent_1px)] bg-[size:32px_32px]"></div>
-            
-            {/* Decorative Animated Dots */}
-            <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-indigo-400/40 rounded-full animate-pulse"></div>
-            <div className="absolute top-1/3 right-1/3 w-2 h-2 bg-purple-400/40 rounded-full animate-pulse animation-delay-1000"></div>
-            <div className="absolute bottom-1/3 left-1/2 w-2 h-2 bg-pink-400/40 rounded-full animate-pulse animation-delay-2000"></div>
-            <div className="absolute top-2/3 right-1/4 w-3 h-3 bg-blue-400/40 rounded-full animate-pulse animation-delay-3000"></div>
-          </div>
-
-          {/* Graph Controls Placeholder */}
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex gap-2">
-              <button className="px-4 py-2 bg-gradient-to-r from-indigo-400 to-purple-400 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 opacity-50 cursor-not-allowed" disabled>
-                Zoom In
-              </button>
-              <button className="px-4 py-2 bg-gradient-to-r from-indigo-400 to-purple-400 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 opacity-50 cursor-not-allowed" disabled>
-                Zoom Out
-              </button>
-              <button className="px-4 py-2 bg-gradient-to-r from-indigo-400 to-purple-400 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 opacity-50 cursor-not-allowed" disabled>
-                Reset View
-              </button>
-            </div>
-            <div className="text-sm text-gray-600">
-              <span className="font-semibold">Ready for API integration</span>
-            </div>
-          </div>
+          <KnowledgeGraph projectId={projectId} />
         </div>
       </div>
     </div>

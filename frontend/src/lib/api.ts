@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { UserCreate, UserLogin, UserResponse, TokenResponse, AuthError } from '@/types/auth';
+import { UserCreate, UserLogin, UserResponse, TokenResponse } from '@/types/auth';
 import { Project, ProjectCreate, ProjectUpdate, ContributorAdd } from '@/types/project';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -21,9 +21,9 @@ api.interceptors.request.use(
       const userData = localStorage.getItem('user');
       if (userData) {
         try {
-          const user = JSON.parse(userData);
+          JSON.parse(userData);
           const accessToken = localStorage.getItem('access_token');
-          if (accessToken) {
+          if (accessToken && config.headers) {
             config.headers.Authorization = `Bearer ${accessToken}`;
           }
         } catch (error) {
@@ -50,7 +50,7 @@ api.interceptors.response.use(
       
       try {
         // Try to refresh the token
-        const refreshResponse = await api.post('/auth/refresh');
+        const refreshResponse = await api.post<TokenResponse>('/auth/refresh');
         
         // Store new tokens
         if (refreshResponse.data.access_token) {
@@ -61,11 +61,13 @@ api.interceptors.response.use(
         }
         
         // Update Authorization header with new token
-        originalRequest.headers.Authorization = `Bearer ${refreshResponse.data.access_token}`;
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${refreshResponse.data.access_token}`;
+        }
         
         // Retry the original request
         return api(originalRequest);
-      } catch (refreshError) {
+      } catch {
         // Refresh failed, redirect to login
         if (typeof window !== 'undefined') {
           localStorage.removeItem('user');
@@ -148,14 +150,73 @@ export const projectAPI = {
   },
 
   // Add contributor - POST /api/v1/projects/:id/contributors
-  addContributor: async (projectId: string, contributor: ContributorAdd): Promise<any> => {
+  addContributor: async (projectId: string, contributor: ContributorAdd): Promise<{ message: string }> => {
     const response = await api.post(`/projects/${projectId}/contributors`, contributor);
     return response.data;
   },
 
   // Remove contributor - DELETE /api/v1/projects/:id/contributors/:userId
-  removeContributor: async (projectId: string, userId: string): Promise<any> => {
+  removeContributor: async (projectId: string, userId: string): Promise<{ message: string }> => {
     const response = await api.delete(`/projects/${projectId}/contributors/${userId}`);
+    return response.data;
+  },
+};
+
+export const contextAPI = {
+  // Search context - POST /api/v1/context/search
+  search: async (query: string, projectId?: string, similarityThreshold: number = 0.5, limit: number = 10): Promise<unknown[]> => {
+    const response = await api.post('/context/search', {
+      query,
+      project_id: projectId,
+      similarity_threshold: similarityThreshold,
+      limit
+    });
+    return response.data;
+  },
+
+  // Retrieve vectors - POST /api/v1/context/retrieve
+  retrieve: async (query: string, projectId: string, similarityThreshold: number = 0.5, limit: number = 10): Promise<unknown[]> => {
+    const response = await api.post('/context/retrieve', {
+      query,
+      project_id: projectId,
+      similarity_threshold: similarityThreshold,
+      limit
+    });
+    return response.data;
+  },
+
+  // RAG chat - POST /api/v1/context/chat
+  chat: async (message: string, projectId: string, history: unknown[] = [], stream: boolean = false, maxContextChunks: number = 5, similarityThreshold: number = 0.5): Promise<unknown> => {
+    const response = await api.post('/context/chat', {
+      message,
+      project_id: projectId,
+      history,
+      stream,
+      max_context_chunks: maxContextChunks,
+      similarity_threshold: similarityThreshold
+    });
+    return response.data;
+  },
+
+  // Chunk and embed - POST /api/v1/context/chunk-and-embed
+  chunkAndEmbed: async (projectId: string, chunks: unknown[], source: string, tags: string[] = []): Promise<unknown> => {
+    const response = await api.post('/context/chunk-and-embed', {
+      project_id: projectId,
+      chunks,
+      source,
+      tags
+    });
+    return response.data;
+  },
+
+  // Save context - POST /api/v1/context/save
+  save: async (content: string, source: string, projectId?: string, tags: string[] = []): Promise<unknown> => {
+    const response = await api.post('/context/save', {
+      content,
+      source,
+      project_id: projectId,
+      tags
+    });
     return response.data;
   },
 };

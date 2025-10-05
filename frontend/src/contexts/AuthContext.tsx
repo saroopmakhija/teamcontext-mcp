@@ -103,8 +103,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
       }
-    } catch (error: any) {
-      console.error('Login error:', error);
+    } catch (err) {
+      console.error('Login error:', err);
+      const error = err as { response?: { data?: { detail?: string } } };
       throw new Error(error.response?.data?.detail || 'Login failed');
     }
   };
@@ -157,8 +158,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         return apiKey;
       }
-    } catch (error: any) {
-      console.error('Registration error:', error);
+    } catch (err) {
+      console.error('Registration error:', err);
+      const error = err as { response?: { data?: { detail?: string } }; message?: string };
       const errorMessage = error.response?.data?.detail || error.message || 'Registration failed';
       throw new Error(errorMessage);
     }

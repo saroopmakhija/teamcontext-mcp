@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { APP_CONFIG } from '@/config/constants';
 import { ArrowLeft, Key, Copy, RefreshCw, CheckCircle, AlertTriangle, Code, Loader2 } from 'lucide-react';
 
 export default function ApiAccessPage() {
@@ -14,7 +15,7 @@ export default function ApiAccessPage() {
   const [error, setError] = useState('');
 
   const handleRotateKey = async () => {
-    if (!confirm('⚠️ This will invalidate your current API key. Any applications using it will stop working. Continue?')) {
+    if (!confirm(APP_CONFIG.messages.confirmRotateApiKey)) {
       return;
     }
 
@@ -36,9 +37,9 @@ export default function ApiAccessPage() {
 
       const data = await response.json();
       setNewApiKey(data.api_key);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error rotating API key:', err);
-      setError(err.message || 'Failed to rotate API key');
+      setError(err instanceof Error ? err.message : 'Failed to rotate API key');
     } finally {
       setRotating(false);
     }
@@ -47,7 +48,7 @@ export default function ApiAccessPage() {
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), APP_CONFIG.timeouts.copyNotification);
   };
 
   return (
@@ -65,7 +66,7 @@ export default function ApiAccessPage() {
         <div className="absolute top-2/3 right-1/4 w-2 h-2 bg-pink-400/40 rounded-full animate-float animation-delay-3000"></div>
         <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-teal-400/40 rounded-full animate-float animation-delay-4000"></div>
         
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:64px_64px]"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808018_1px,transparent_1px),linear-gradient(to_bottom,#80808018_1px,transparent_1px)] bg-[size:64px_64px]"></div>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),rgba(255,255,255,0))]"></div>
       </div>
 
@@ -109,12 +110,9 @@ export default function ApiAccessPage() {
             <div>
               <p className="font-semibold text-green-900">Active</p>
               <p className="text-xs text-green-700">
-                API key was generated on {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
+                API key was generated on {user?.created_at ? new Date(user.created_at + 'Z').toLocaleString(undefined, {
+                  dateStyle: 'long',
+                  timeStyle: 'short'
                 }) : 'N/A'}
               </p>
             </div>
@@ -128,7 +126,7 @@ export default function ApiAccessPage() {
               <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-1" />
               <div>
                 <h3 className="text-lg font-bold text-amber-900 mb-1">⚠️ Save Your New API Key Now!</h3>
-                <p className="text-sm text-amber-700">This is the only time you'll see this key. Copy it and store it securely.</p>
+                <p className="text-sm text-amber-700">This is the only time you&apos;ll see this key. Copy it and store it securely.</p>
               </div>
             </div>
             
@@ -199,8 +197,8 @@ export default function ApiAccessPage() {
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">Example Request (cURL)</h3>
               <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-green-400 overflow-x-auto">
-                curl -X GET "{process.env.NEXT_PUBLIC_API_URL}/auth/me" \<br/>
-                &nbsp;&nbsp;-H "Authorization: Bearer YOUR_API_KEY"
+                curl -X GET &quot;{process.env.NEXT_PUBLIC_API_URL}/auth/me&quot; \<br/>
+                &nbsp;&nbsp;-H &quot;Authorization: Bearer YOUR_API_KEY&quot;
               </div>
             </div>
 
@@ -208,9 +206,9 @@ export default function ApiAccessPage() {
               <h3 className="font-semibold text-gray-900 mb-2">Example Request (Python)</h3>
               <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-green-400 overflow-x-auto">
                 import requests<br/><br/>
-                headers = &#123;"Authorization": "Bearer YOUR_API_KEY"&#125;<br/>
+                headers = &#123;&quot;Authorization&quot;: &quot;Bearer YOUR_API_KEY&quot;&#125;<br/>
                 response = requests.get(<br/>
-                &nbsp;&nbsp;"{process.env.NEXT_PUBLIC_API_URL}/auth/me",<br/>
+                &nbsp;&nbsp;&quot;{process.env.NEXT_PUBLIC_API_URL}/auth/me&quot;,<br/>
                 &nbsp;&nbsp;headers=headers<br/>
                 )
               </div>
@@ -219,9 +217,9 @@ export default function ApiAccessPage() {
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">Example Request (JavaScript)</h3>
               <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-green-400 overflow-x-auto">
-                fetch('{process.env.NEXT_PUBLIC_API_URL}/auth/me', &#123;<br/>
+                fetch(&apos;{process.env.NEXT_PUBLIC_API_URL}/auth/me&apos;, &#123;<br/>
                 &nbsp;&nbsp;headers: &#123;<br/>
-                &nbsp;&nbsp;&nbsp;&nbsp;'Authorization': 'Bearer YOUR_API_KEY'<br/>
+                &nbsp;&nbsp;&nbsp;&nbsp;&apos;Authorization&apos;: &apos;Bearer YOUR_API_KEY&apos;<br/>
                 &nbsp;&nbsp;&#125;<br/>
                 &#125;)
               </div>
