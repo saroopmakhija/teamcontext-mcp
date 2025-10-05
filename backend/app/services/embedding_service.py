@@ -13,7 +13,7 @@ class EmbeddingService:
 
     Features:
     - Supports embedding text, code, and any string content
-    - Uses gemini-embedding-001 (768 dimensions)
+    - Uses gemini-embedding-001 (3,072 dimensions)
     - Configurable output dimensionality
     - Handles both single strings and lists of strings
     - Compatible with external chunking services

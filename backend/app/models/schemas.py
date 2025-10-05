@@ -49,3 +49,24 @@ class VectorRetrievalResponse(BaseModel):
     similarity_score: float
     metadata: Dict[str, Any]
     created_at: datetime
+
+# RAG Chatbot schemas
+class ChatMessage(BaseModel):
+    """Single chat message"""
+    role: str  # "user" or "model"
+    content: str
+
+class ChatRequest(BaseModel):
+    """Request for RAG chatbot conversation"""
+    project_id: str  # REQUIRED: Project-specific context
+    message: str  # User's message
+    history: Optional[List[ChatMessage]] = []  # Previous conversation history
+    max_context_chunks: int = 5  # Number of relevant chunks to retrieve
+    similarity_threshold: float = 0.3  # Lower threshold for broader context
+    stream: bool = False  # Enable streaming response
+
+class ChatResponse(BaseModel):
+    """Response from RAG chatbot"""
+    message: str  # AI response
+    sources: List[VectorRetrievalResponse]  # Retrieved context chunks used
+    conversation_id: Optional[str] = None  # For tracking conversations

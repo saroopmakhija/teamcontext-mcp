@@ -1,14 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from app.models.schemas import (
     ContextSaveRequest, ContextSearchRequest, ContextResponse,
-    ChunkAndEmbedRequest, VectorRetrievalRequest, VectorRetrievalResponse
+    ChunkAndEmbedRequest, VectorRetrievalRequest, VectorRetrievalResponse,
+    ChatRequest, ChatResponse
 )
 from app.dependencies import verify_jwt_or_api_key
 from app.db.mongodb import get_database
 from app.services.embedding_service import embedding_service
+from app.services.llm_service import llm_service
 from datetime import datetime
 from bson import ObjectId
 from typing import List
+import json
 
 router = APIRouter(prefix="/api/v1/context", tags=["context"])
 
@@ -298,3 +302,152 @@ async def retrieve_vectors(
         )
 
     return results
+
+
+@router.post("/chat")
+async def rag_chat(
+    request: ChatRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    RAG-powered chatbot for project-specific context.
+
+    Flow:
+    1. Verify user has access to project
+    2. Retrieve relevant context chunks via semantic search
+    3. Inject context into prompt
+    4. Generate response using Gemini Flash 2.0
+    5. Return response with sources
+
+    Supports:
+    - Conversation history for multi-turn chats
+    - Streaming responses for real-time UX
+    - Project-specific knowledge isolation
+    """
+    db = get_database()
+
+    # Verify user has access to this project
+    project = await check_project_access(request.project_id, user, db)
+    project_name = project.get("name", "this project")
+
+    print(f"💬 RAG Chat request for project: {project_name}")
+    print(f"   User message: {request.message}")
+    print(f"   History length: {len(request.history)}")
+
+    # Step 1: Retrieve relevant context via semantic search
+    query_embedding = embedding_service.generate_embedding(request.message)
+
+    # PROJECT-SPECIFIC FILTER
+    filter_query = {"metadata.project_id": request.project_id}
+
+    # Get all vectors from THIS PROJECT ONLY
+    cursor = db.contexts.find(filter_query)
+    contexts = await cursor.to_list(length=10000)
+
+    print(f"📊 Found {len(contexts)} total vectors in project")
+
+    # Calculate similarities
+    relevant_chunks = []
+    for ctx in contexts:
+        similarity = embedding_service.calculate_similarity(
+            query_embedding,
+            ctx["embedding"]
+        )
+
+        if similarity >= request.similarity_threshold:
+            relevant_chunks.append({
+                "chunk_id": str(ctx["_id"]),
+                "content": ctx["content"],
+                "similarity_score": similarity,
+                "metadata": ctx["metadata"],
+                "created_at": ctx["created_at"]
+            })
+
+    # Sort by similarity and limit
+    relevant_chunks.sort(key=lambda x: x["similarity_score"], reverse=True)
+    relevant_chunks = relevant_chunks[:request.max_context_chunks]
+
+    print(f"✅ Retrieved {len(relevant_chunks)} relevant chunks above threshold {request.similarity_threshold}")
+
+    # Step 2: Generate RAG prompt with context injection
+    rag_prompt = llm_service.generate_rag_prompt(
+        user_message=request.message,
+        context_chunks=relevant_chunks,
+        project_name=project_name
+    )
+
+    # Step 3: Convert history to LLM format
+    history_messages = []
+    for msg in request.history:
+        history_messages.append({
+            "role": msg.role,
+            "content": msg.content
+        })
+
+    # Step 4: Generate response
+    if request.stream:
+        # Streaming response
+        async def stream_generator():
+            try:
+                for chunk in llm_service.chat_completion_stream(
+                    message=rag_prompt,
+                    history=history_messages
+                ):
+                    # Send as Server-Sent Events (SSE)
+                    yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+
+                # Send sources at the end
+                sources_data = {
+                    "sources": [
+                        {
+                            "chunk_id": chunk["chunk_id"],
+                            "content": chunk["content"],
+                            "similarity_score": chunk["similarity_score"],
+                            "metadata": chunk["metadata"]
+                        }
+                        for chunk in relevant_chunks
+                    ]
+                }
+                yield f"data: {json.dumps(sources_data)}\n\n"
+                yield "data: [DONE]\n\n"
+
+            except Exception as e:
+                error_data = {"error": str(e)}
+                yield f"data: {json.dumps(error_data)}\n\n"
+
+        return StreamingResponse(
+            stream_generator(),
+            media_type="text/event-stream"
+        )
+    else:
+        # Non-streaming response
+        response_text = llm_service.chat_completion(
+            message=rag_prompt,
+            history=history_messages
+        )
+
+        print(f"✅ Generated response ({len(response_text)} chars)")
+
+        # Update access count for retrieved chunks
+        for chunk in relevant_chunks:
+            await db.contexts.update_one(
+                {"_id": ObjectId(chunk["chunk_id"])},
+                {"$inc": {"accessed_count": 1}}
+            )
+
+        # Convert to response format
+        sources = [
+            VectorRetrievalResponse(
+                chunk_id=chunk["chunk_id"],
+                content=chunk["content"],
+                similarity_score=chunk["similarity_score"],
+                metadata=chunk["metadata"],
+                created_at=chunk["created_at"]
+            )
+            for chunk in relevant_chunks
+        ]
+
+        return ChatResponse(
+            message=response_text,
+            sources=sources
+        )
