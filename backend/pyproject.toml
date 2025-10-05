@@ -15,7 +15,9 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",
     "email-validator>=2.3.0",
     "pymongo>=4.15.2",
+    "plotly>=5.22.0",
     "sentence-transformers>=5.1.1",
+    "snowflake>=1.8.0",
 ]
 
 [build-system]

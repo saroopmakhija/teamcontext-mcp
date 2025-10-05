@@ -14,4 +14,6 @@ Requires-Dist: passlib[bcrypt]>=1.7.4
 Requires-Dist: python-jose[cryptography]>=3.3.0
 Requires-Dist: email-validator>=2.3.0
 Requires-Dist: pymongo>=4.15.2
+Requires-Dist: plotly>=5.22.0
 Requires-Dist: sentence-transformers>=5.1.1
+Requires-Dist: snowflake>=1.8.0

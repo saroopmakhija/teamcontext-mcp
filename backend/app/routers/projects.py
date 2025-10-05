@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from app.models.project import ProjectCreate, ProjectUpdate, ProjectResponse, ContributorAdd
 from app.db.mongodb import get_database
 from app.dependencies import verify_jwt_or_api_key
+from app.services.snowflake_user_service import update_user_project_assignment
 from datetime import datetime
 from bson import ObjectId
 from typing import List
@@ -34,9 +35,14 @@ async def create_project(
     }
 
     result = await db.projects.insert_one(project_doc)
+    project_id = str(result.inserted_id)
+
+    owner_email = user.get("email")
+    if owner_email:
+        await update_user_project_assignment(owner_email, project_id)
 
     return ProjectResponse(
-        id=str(result.inserted_id),
+        id=project_id,
         name=project_doc["name"],
         description=project_doc["description"],
         owner_id=str(user["_id"]),
@@ -211,6 +217,9 @@ async def add_contributor(
         }
     )
 
+    if new_contributor.get("email"):
+        await update_user_project_assignment(new_contributor["email"], project_id)
+
     return {
         "status": "added",
         "contributor": {
@@ -236,13 +245,24 @@ async def remove_contributor(
     if project["owner_id"] != user["_id"]:
         raise HTTPException(status_code=403, detail="Only owner can remove contributors")
 
-    # Remove contributor
+    contributor_obj_id = ObjectId(user_id)
+    if contributor_obj_id not in project.get("contributors", []):
+        raise HTTPException(status_code=400, detail="User is not a contributor")
+
+    contributor_doc = await db.users.find_one({"_id": contributor_obj_id})
+    if not contributor_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
     await db.projects.update_one(
         {"_id": ObjectId(project_id)},
         {
-            "$pull": {"contributors": ObjectId(user_id)},
+            "$pull": {"contributors": contributor_obj_id},
             "$set": {"updated_at": datetime.utcnow()}
         }
     )
 
+    if contributor_doc.get("email"):
+        await update_user_project_assignment(contributor_doc["email"], None)
+
     return {"status": "removed", "user_id": user_id}
+
