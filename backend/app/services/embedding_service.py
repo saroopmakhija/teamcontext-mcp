@@ -1,7 +1,8 @@
 import os
 import numpy as np
-from google import genai
+import google.generativeai as genai
 from typing import Union, List
+from app.config import settings
 
 class EmbeddingService:
     """
@@ -18,13 +19,13 @@ class EmbeddingService:
     def __init__(self):
         print("🔄 Initializing Gemini embedding service (gemini-embedding-001)...")
 
-        # Get API key from environment
-        api_key = os.getenv('GEMINI_API_KEY')
+        # Get API key from config
+        api_key = settings.gemini_api_key
         if not api_key:
-            raise ValueError("GEMINI_API_KEY not found in environment variables")
+            raise ValueError("gemini_api_key not found in configuration")
 
         # Initialize Gemini client
-        self.client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
         self.model = 'gemini-embedding-001'
 
         print("✅ Gemini embedding service initialized!")
@@ -45,30 +46,19 @@ class EmbeddingService:
             Single embedding list or list of embedding lists
         """
         try:
-            # Prepare config if dimensionality specified
-            config = None
-            if output_dimensionality:
-                from google.genai import types
-                config = types.EmbedContentConfig(output_dimensionality=output_dimensionality)
-
             # Handle single string vs list
             is_single = isinstance(text, str)
             contents = text if not is_single else [text]
 
-            # Generate embeddings
-            response = self.client.models.embed_content(
-                model=self.model,
-                contents=contents,
-                config=config
-            )
-
-            # Extract embeddings from response
-            if hasattr(response, 'embeddings'):
-                embeddings = [emb.values for emb in response.embeddings]
-            else:
-                # Fallback for different response structure
-                embeddings = response.get('embeddings', [])
-                embeddings = [emb.get('values', []) for emb in embeddings]
+            # Generate embeddings using Gemini API
+            embeddings = []
+            for content in contents:
+                result = genai.embed_content(
+                    model=self.model,
+                    content=content,
+                    task_type="retrieval_document"
+                )
+                embeddings.append(result['embedding'])
 
             # Return single embedding if single string input
             return embeddings[0] if is_single else embeddings
