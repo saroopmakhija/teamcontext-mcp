@@ -33,7 +33,7 @@ def _make_request(
     """Make an HTTP request with error handling"""
     url = f"{BASE_URL}{endpoint}"
     headers = _get_headers(auth_token)
-    
+    print(f"Sending {method} request to {url} with headers {headers} and data {data} and params {params}")
     try:
         if method == "GET":
             response = requests.get(url, headers=headers, params=params)
