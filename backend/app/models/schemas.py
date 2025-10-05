@@ -13,7 +13,7 @@ class ContextSearchRequest(BaseModel):
     query: str
     project_id: Optional[str] = None
     limit: int = 10
-    similarity_threshold: float = 0.5
+    similarity_threshold: float = 0.01
 
 class ContextResponse(BaseModel):
     id: str
@@ -40,7 +40,7 @@ class VectorRetrievalRequest(BaseModel):
     project_id: str  # REQUIRED: Only search within this project
     query: str  # The query to search for
     limit: int = 10
-    similarity_threshold: float = 0.5
+    similarity_threshold: float = 0.01
 
 class VectorRetrievalResponse(BaseModel):
     """Response with similar chunks from vector DB"""

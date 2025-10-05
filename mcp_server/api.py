@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+"""
+API helper functions for backend communication.
+Each function accepts an auth_token to authenticate requests.
+"""
+import requests
+import os
+from typing import Dict, List, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost')
+PORT = os.getenv('PORT', '8000')
+BASE_URL = f"{BACKEND_URL}:{PORT}/api/v1"
+
+
+def _get_headers(auth_token: str) -> Dict[str, str]:
+    """Get headers with authentication token"""
+    return {
+        "Authorization": f"Bearer {auth_token}",
+        "Content-Type": "application/json"
+    }
+
+
+def _make_request(
+    auth_token: str,
+    method: str, 
+    endpoint: str, 
+    data: Optional[Dict] = None,
+    params: Optional[Dict] = None
+) -> Dict:
+    """Make an HTTP request with error handling"""
+    url = f"{BASE_URL}{endpoint}"
+    headers = _get_headers(auth_token)
+    
+    try:
+        if method == "GET":
+            response = requests.get(url, headers=headers, params=params)
+        elif method == "POST":
+            response = requests.post(url, headers=headers, json=data)
+        elif method == "PUT":
+            response = requests.put(url, headers=headers, json=data)
+        elif method == "DELETE":
+            response = requests.delete(url, headers=headers)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+        
+        # Handle HTTP errors
+        if response.status_code == 401:
+            raise Exception("Unauthorized - check your AUTH_TOKEN")
+        elif response.status_code == 403:
+            raise Exception("Forbidden - you don't have access to this resource")
+        elif response.status_code == 404:
+            raise Exception("Resource not found")
+        elif response.status_code >= 500:
+            raise Exception(f"Server error: {response.status_code}")
+        
+        response.raise_for_status()
+        return response.json()
+        
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"API request failed: {str(e)}")
+
+
+# === AUTH FUNCTIONS ===
+
+def get_me(auth_token: str) -> Dict:
+    """Get current authenticated user info"""
+    return _make_request(auth_token, "GET", "/auth/me")
+
+
+# === PROJECT FUNCTIONS ===
+
+def add_project(auth_token: str, name: str, description: str) -> Dict:
+    """Create a new project"""
+    data = {"name": name, "description": description}
+    return _make_request(auth_token, "POST", "/projects/", data=data)
+
+
+def get_all_projects(auth_token: str) -> List[Dict]:
+    """Get all projects user owns or contributes to"""
+    return _make_request(auth_token, "GET", "/projects/")
+
+
+def get_project(auth_token: str, project_id: str) -> Dict:
+    """Get a specific project by ID"""
+    return _make_request(auth_token, "GET", f"/projects/{project_id}")
+
+
+def edit_project(
+    auth_token: str, 
+    project_id: str, 
+    name: Optional[str] = None, 
+    description: Optional[str] = None
+) -> Dict:
+    """Update project name and/or description"""
+    data = {}
+    if name is not None:
+        data["name"] = name
+    if description is not None:
+        data["description"] = description
+    
+    if not data:
+        raise ValueError("Must provide at least name or description to update")
+    
+    return _make_request(auth_token, "PUT", f"/projects/{project_id}", data=data)
+
+
+def delete_project(auth_token: str, project_id: str) -> Dict:
+    """Delete a project"""
+    return _make_request(auth_token, "DELETE", f"/projects/{project_id}")
+
+
+# === CONTEXT FUNCTIONS ===
+
+def add_context(
+    auth_token: str,
+    content: str,
+    project_id: str,
+    source: Optional[str] = None,
+    tags: Optional[List[str]] = None
+) -> Dict:
+    """Save context to a project with embeddings"""
+    data = {
+        "content": content,
+        "project_id": project_id,
+        "source": source or "mcp_client",
+        "tags": tags or []
+    }
+    return _make_request(auth_token, "POST", "/context/save", data=data)
+
+
+def retrieve_relevant_context(
+    auth_token: str,
+    query: str,
+    project_id: str,
+    limit: int = 5,
+    similarity_threshold: float = 0.01
+) -> List[Dict]:
+    """Retrieve relevant context from a project using vector search"""
+    data = {
+        "query": query,
+        "project_id": project_id,
+        "limit": limit,
+        "similarity_threshold": similarity_threshold
+    }
+    return _make_request(auth_token, "POST", "/context/retrieve", data=data)
+
+
+def search_context(
+    auth_token: str,
+    query: str,
+    project_id: Optional[str] = None,
+    limit: int = 10,
+    similarity_threshold: float = 0.01
+) -> List[Dict]:
+    """Search for context across projects"""
+    data = {
+        "query": query,
+        "project_id": project_id,
+        "limit": limit,
+        "similarity_threshold": similarity_threshold
+    }
+    return _make_request(auth_token, "POST", "/context/search", data=data)
