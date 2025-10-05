@@ -36,6 +36,51 @@ async def check_project_access(project_id: str, user: dict, db):
 
     return project
 
+async def find_similar_chunks(embedding: List[float], project_id: str, db, limit: int = 3, threshold: float = 0.01) -> List[str]:
+    """
+    Find top N most similar chunks in a project based on embedding similarity.
+    Only returns chunks above the similarity threshold.
+
+    Args:
+        embedding: The embedding vector to compare against
+        project_id: Project to search within
+        db: Database connection
+        limit: Maximum number of similar chunks to return (default 3)
+        threshold: Minimum similarity score to be considered linked (default 0.01)
+
+    Returns:
+        List of chunk IDs that are similar above the threshold
+    """
+    # Get all chunks from the project
+    filter_query = {"metadata.project_id": project_id}
+    cursor = db.contexts.find(filter_query)
+    contexts = await cursor.to_list(length=10000)
+
+    if len(contexts) == 0:
+        return []
+
+    # Calculate similarities
+    similarities = []
+    for ctx in contexts:
+        similarity = embedding_service.calculate_similarity(
+            embedding,
+            ctx["embedding"]
+        )
+
+        # Only include chunks above threshold
+        if similarity >= threshold:
+            similarities.append({
+                "chunk_id": str(ctx["_id"]),
+                "similarity": similarity
+            })
+
+    # Sort by similarity (highest first) and get top N
+    similarities.sort(key=lambda x: x["similarity"], reverse=True)
+    top_chunks = similarities[:limit]
+
+    # Return just the chunk IDs
+    return [chunk["chunk_id"] for chunk in top_chunks]
+
 @router.post("/save")
 async def save_context(
     request: ContextSaveRequest,
@@ -51,13 +96,18 @@ async def save_context(
     # Generate embedding
     embedding = embedding_service.generate_embedding(request.content)
 
+    # Find top 3 similar chunks for linking (only if project_id provided)
+    linked_chunk_ids = []
+    if request.project_id:
+        linked_chunk_ids = await find_similar_chunks(embedding, request.project_id, db, limit=3)
+
     # Create context document
     context_doc = {
         "content": request.content,
         "embedding": embedding,
         "metadata": {
             "source": request.source,
-            "tags": request.tags,
+            "tags": linked_chunk_ids,  # Auto-generated tags with similar chunk IDs
             "project_id": request.project_id,
             "created_by": str(user["_id"])
         },
@@ -65,7 +115,7 @@ async def save_context(
         "accessed_count": 0
     }
 
-    
+
 
     # Insert into MongoDB
     result = await db.contexts.insert_one(context_doc)
@@ -73,6 +123,7 @@ async def save_context(
     return {
         "status": "success",
         "context_id": str(result.inserted_id),
+        "tags": linked_chunk_ids,  # Show the auto-generated linked chunk IDs
         "message": "Context saved successfully"
     }
 
@@ -149,12 +200,64 @@ async def search_context(
 
 @router.get("/{context_id}")
 async def get_context(context_id: str):
-    """Get context by id"""
+    """
+    Get context/chunk by id with complete information for knowledge graph.
+
+    Returns:
+    - chunk_id: The ID of the chunk
+    - content: The actual text content
+    - tags: List of linked chunk IDs (top 3 similar chunks)
+    - metadata: Full metadata including project_id, source, created_by, etc.
+    - created_at: Timestamp when chunk was created
+    - accessed_count: How many times this chunk has been accessed
+
+    Use this to build adjacency lists for knowledge graphs in the frontend.
+    """
     db = get_database()
     context = await db.contexts.find_one({"_id": ObjectId(context_id)})
     if not context:
         raise HTTPException(status_code=404, detail="Context not found")
-    return context["content"]
+
+    return {
+        "chunk_id": str(context["_id"]),
+        "content": context["content"],
+        "tags": context["metadata"].get("tags", []),  # Linked chunk IDs
+        "metadata": context["metadata"],
+        "created_at": context["created_at"],
+        "accessed_count": context.get("accessed_count", 0)
+    }
+
+@router.delete("/project/{project_id}/clear")
+async def clear_project_context(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Clear all chunks/context for a specific project.
+
+    Only the project owner or contributors can clear the project's context.
+    This will delete all chunks, embeddings, and related data for the project.
+
+    Returns:
+    - deleted_count: Number of chunks deleted
+    - project_id: The project that was cleared
+    """
+    db = get_database()
+
+    # Verify user has access to this project
+    await check_project_access(project_id, user, db)
+
+    # Delete all contexts for this project
+    result = await db.contexts.delete_many({"metadata.project_id": project_id})
+
+    print(f"🗑️ Cleared {result.deleted_count} chunks from project {project_id}")
+
+    return {
+        "status": "success",
+        "project_id": project_id,
+        "deleted_count": result.deleted_count,
+        "message": f"Successfully cleared {result.deleted_count} chunks from project"
+    }
 
 @router.get("/health")
 async def health_check():
@@ -201,6 +304,9 @@ async def chunk_and_embed(
     # Prepare documents for insertion
     vector_docs = []
     for i, (chunk, embedding) in enumerate(zip(request.chunks, embeddings)):
+        # Find top 3 similar chunks for linking
+        linked_chunk_ids = await find_similar_chunks(embedding, request.project_id, db, limit=3)
+
         doc = {
             "content": chunk.content,
             "embedding": embedding,
@@ -208,7 +314,7 @@ async def chunk_and_embed(
                 "project_id": request.project_id,  # PROJECT-SPECIFIC ISOLATION
                 "created_by": str(user["_id"]),
                 "source": request.source,
-                "tags": request.tags,
+                "tags": linked_chunk_ids,  # Auto-generated tags with similar chunk IDs
                 "chunk_index": i,
                 **chunk.metadata  # Include any custom metadata from chunking service
             },
@@ -222,13 +328,17 @@ async def chunk_and_embed(
 
     print(f"✅ Stored {len(result.inserted_ids)} vectors in project {request.project_id}")
 
+    # Collect all tags for response
+    all_tags = [doc["metadata"]["tags"] for doc in vector_docs]
+
     return {
         "status": "success",
         "project_id": request.project_id,
         "chunks_processed": len(chunk_texts),
         "vectors_stored": len(result.inserted_ids),
         "embedding_dimensions": len(embeddings[0]),
-        "vector_ids": [str(id) for id in result.inserted_ids]
+        "vector_ids": [str(id) for id in result.inserted_ids],
+        "tags": all_tags  # Show the auto-generated tags for each chunk
     }
 
 

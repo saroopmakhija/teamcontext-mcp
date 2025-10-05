@@ -4,6 +4,7 @@ from app.db.mongodb import get_database
 from app.utils.security import hash_password, verify_password, generate_api_key, hash_api_key
 from app.dependencies import verify_jwt_or_api_key, verify_refresh_token
 from app.services.jwt_service import create_access_token, create_refresh_token, ACCESS_TOKEN_EXPIRE_HOURS, REFRESH_TOKEN_EXPIRE_HOURS
+from app.services.snowflake_user_service import create_user_record
 from datetime import datetime
 from bson import ObjectId
 
@@ -31,12 +32,14 @@ async def register(user: UserCreate):
         "name": user.name,
         "hashed_password": hash_password(user.password),
         "hashed_api_key": hash_api_key(plain_api_key),
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
         "is_active": True
     }
 
     result = await db.users.insert_one(user_doc)
+
+    await create_user_record(user.email)
 
     # Return the plaintext API key only once - user must save it
     return UserResponse(
