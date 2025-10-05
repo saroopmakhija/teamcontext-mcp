@@ -33,7 +33,7 @@ async def setup_database():
         database = db.client[settings.mongodb_db_name]
         
         # Create collections if they don't exist
-        collections = ['users', 'projects', 'chunks']
+        collections = ['users', 'projects', 'chunks', 'vectordb', 'analytics']
         
         for collection_name in collections:
             if collection_name not in await database.list_collection_names():
