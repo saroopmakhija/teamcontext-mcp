@@ -25,4 +25,4 @@ class ChunkSearchRequest(BaseModel):
     query: str
     project_id: Optional[str] = None
     limit: int = 10
-    similarity_threshold: float = 0.5
+    similarity_threshold: float = 0.01

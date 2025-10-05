@@ -15,10 +15,15 @@ app/routers/auth.py
 app/routers/context.py
 app/routers/projects.py
 app/services/__init__.py
+app/services/auth_service.py
+app/services/chunking.py
 app/services/embedding_service.py
+app/services/gemini.py
+app/services/jwt_service.py
 app/utils/security.py
 teamcontext_backend.egg-info/PKG-INFO
 teamcontext_backend.egg-info/SOURCES.txt
 teamcontext_backend.egg-info/dependency_links.txt
 teamcontext_backend.egg-info/requires.txt
 teamcontext_backend.egg-info/top_level.txt
+test/test_chunking.py

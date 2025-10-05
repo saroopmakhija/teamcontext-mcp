@@ -35,7 +35,15 @@ async def create_indexes():
     await database.chunks.create_index("created_at")
     await database.chunks.create_index([("content", pymongo.TEXT)])
 
-    print("✅ Database indexes created")
+    # Contexts collection indexes (for embeddings/vector search)
+    await database.contexts.create_index("metadata.project_id")
+    await database.contexts.create_index("metadata.created_by")
+    await database.contexts.create_index("created_at")
+    await database.contexts.create_index("accessed_count")
+    # Compound index for project-based queries
+    await database.contexts.create_index([("metadata.project_id", pymongo.ASCENDING), ("created_at", pymongo.DESCENDING)])
+
+    print("✅ Database indexes created (including contexts for vector search)")
 
 async def close_mongo_connection():
     if db.client:
