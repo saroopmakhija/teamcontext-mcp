@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+        - MONGODB_URI=${MONGODB_URI}
+        - MONGODB_DB_NAME=${MONGODB_DB_NAME}
+        - API_KEY_SECRET=${API_KEY_SECRET}
+        - GEMINI_API_KEY=${GEMINI_API_KEY}
+        - ENVIRONMENT=${ENVIRONMENT}
+    ports:
+      - "4000:3000"
+    env_file:
+      - ../.env
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB_NAME=${MONGODB_DB_NAME}
+      - API_KEY_SECRET=${API_KEY_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ENVIRONMENT=${ENVIRONMENT}
+    restart: unless-stopped
