@@ -151,13 +151,13 @@ export const projectAPI = {
 
   // Add contributor - POST /api/v1/projects/:id/contributors
   addContributor: async (projectId: string, contributor: ContributorAdd): Promise<{ message: string }> => {
-    const response = await api.post(`/projects/${projectId}/contributors`, contributor);
+    const response = await api.post<{ message: string }>(`/projects/${projectId}/contributors`, contributor);
     return response.data;
   },
 
   // Remove contributor - DELETE /api/v1/projects/:id/contributors/:userId
   removeContributor: async (projectId: string, userId: string): Promise<{ message: string }> => {
-    const response = await api.delete(`/projects/${projectId}/contributors/${userId}`);
+    const response = await api.delete<{ message: string }>(`/projects/${projectId}/contributors/${userId}`);
     return response.data;
   },
 };
@@ -165,7 +165,7 @@ export const projectAPI = {
 export const contextAPI = {
   // Search context - POST /api/v1/context/search
   search: async (query: string, projectId?: string, similarityThreshold: number = 0.5, limit: number = 10): Promise<unknown[]> => {
-    const response = await api.post('/context/search', {
+    const response = await api.post<unknown[]>('/context/search', {
       query,
       project_id: projectId,
       similarity_threshold: similarityThreshold,
@@ -176,7 +176,7 @@ export const contextAPI = {
 
   // Retrieve vectors - POST /api/v1/context/retrieve
   retrieve: async (query: string, projectId: string, similarityThreshold: number = 0.5, limit: number = 10): Promise<unknown[]> => {
-    const response = await api.post('/context/retrieve', {
+    const response = await api.post<unknown[]>('/context/retrieve', {
       query,
       project_id: projectId,
       similarity_threshold: similarityThreshold,

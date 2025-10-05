@@ -7,15 +7,17 @@ import { projectAPI, contextAPI } from '@/lib/api';
 import { Project } from '@/types/project';
 import { APP_CONFIG } from '@/config/constants';
 import KnowledgeGraph from '@/components/KnowledgeGraph';
-import { 
-  ArrowLeft, 
-  Users, 
-  Search, 
-  UserPlus, 
-  X, 
+import {
+  ArrowLeft,
+  Users,
+  Search,
+  UserPlus,
+  X,
   Loader2,
   FileText,
-  Trash2
+  Trash2,
+  Upload,
+  Plus
 } from 'lucide-react';
 
 interface SearchResult {
@@ -56,6 +58,13 @@ export default function ProjectDetailPage() {
   const [showAddContributor, setShowAddContributor] = useState(false);
   const [contributorEmail, setContributorEmail] = useState('');
   const [addingContributor, setAddingContributor] = useState(false);
+
+  // Add context states
+  const [showAddContext, setShowAddContext] = useState(false);
+  const [contextText, setContextText] = useState('');
+  const [contextFiles, setContextFiles] = useState<File[]>([]);
+  const [uploadingContext, setUploadingContext] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -165,6 +174,93 @@ export default function ProjectDetailPage() {
       const error = err as { response?: { data?: { detail?: string } } };
       setError(error.response?.data?.detail || 'Failed to remove contributor');
     }
+  };
+
+  const handleAddContext = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!contextText.trim() && contextFiles.length === 0) {
+      setError('Please enter text or upload files');
+      return;
+    }
+
+    try {
+      setUploadingContext(true);
+      setError('');
+
+      let successCount = 0;
+
+      // Save text content
+      if (contextText.trim()) {
+        await contextAPI.save(
+          contextText,
+          'user_input',
+          projectId,
+          ['user-uploaded', 'text']
+        );
+        successCount++;
+      }
+
+      // Save each file
+      for (const file of contextFiles) {
+        const content = await file.text();
+        await contextAPI.save(
+          content,
+          'file_upload',
+          projectId,
+          ['user-uploaded', 'file', file.name]
+        );
+        successCount++;
+      }
+
+      // Reset form
+      setContextText('');
+      setContextFiles([]);
+      setShowAddContext(false);
+
+      // Show success message
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: `✅ Successfully added ${successCount} item${successCount !== 1 ? 's' : ''} to project context! Auto-linked to similar chunks.`,
+        timestamp: new Date()
+      }]);
+    } catch (err) {
+      console.error('Error adding context:', err);
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Failed to add context');
+    } finally {
+      setUploadingContext(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    setContextFiles(prev => [...prev, ...files]);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setContextFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setContextFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const formatDate = (dateString: string) => {
@@ -344,6 +440,124 @@ export default function ProjectDetailPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Add Context Section */}
+            <div className="backdrop-blur-xl bg-white/70 rounded-2xl shadow-lg p-6 border border-white/60 hover:shadow-[0_20px_50px_-15px_rgba(59,130,246,0.4)] transition-all duration-300 hover:-translate-y-1">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-blue-900">Add Context</h2>
+                <button
+                  onClick={() => setShowAddContext(!showAddContext)}
+                  className="p-2 hover:bg-blue-100/50 rounded-lg transition-colors"
+                >
+                  {showAddContext ? <X className="w-5 h-5 text-blue-600" /> : <Plus className="w-5 h-5 text-blue-600" />}
+                </button>
+              </div>
+
+              {showAddContext && (
+                <form onSubmit={handleAddContext} className="space-y-4">
+                  {/* Text Input */}
+                  <div>
+                    <label className="block text-sm font-semibold text-blue-900 mb-2">
+                      Paste Text or Code
+                    </label>
+                    <textarea
+                      value={contextText}
+                      onChange={(e) => setContextText(e.target.value)}
+                      placeholder="Paste your code, documentation, or any text here..."
+                      className="w-full px-4 py-3 rounded-xl border border-blue-200/50 bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[120px] text-black font-mono text-sm placeholder:text-gray-400 resize-y"
+                    />
+                  </div>
+
+                  {/* File Upload - Drag & Drop */}
+                  <div>
+                    <label className="block text-sm font-semibold text-blue-900 mb-2">
+                      Upload Files
+                    </label>
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${
+                        isDragging
+                          ? 'border-blue-500 bg-blue-50/50'
+                          : 'border-blue-200/50 bg-white/50'
+                      }`}
+                    >
+                      <Upload className={`w-8 h-8 mx-auto mb-2 ${isDragging ? 'text-blue-500' : 'text-blue-400'}`} />
+                      <p className="text-sm font-medium text-blue-900 mb-1">
+                        Drag & drop files here
+                      </p>
+                      <p className="text-xs text-blue-600/70 mb-3">
+                        or click to browse
+                      </p>
+                      <input
+                        type="file"
+                        multiple
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        id="file-upload"
+                        accept=".txt,.md,.py,.js,.jsx,.ts,.tsx,.json,.html,.css,.java,.cpp,.c,.go,.rs,.rb,.php,.swift,.kt"
+                      />
+                      <label
+                        htmlFor="file-upload"
+                        className="inline-block bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white px-4 py-2 rounded-lg font-semibold text-sm cursor-pointer transition-all shadow-md"
+                      >
+                        Browse Files
+                      </label>
+                    </div>
+
+                    {/* Selected Files List */}
+                    {contextFiles.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {contextFiles.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-blue-50/50 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-blue-600" />
+                              <span className="text-sm text-blue-900 font-medium">{file.name}</span>
+                              <span className="text-xs text-blue-600/70">
+                                ({(file.size / 1024).toFixed(1)} KB)
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(index)}
+                              className="p-1 hover:bg-red-100/50 rounded transition-colors"
+                            >
+                              <X className="w-4 h-4 text-red-600" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={uploadingContext || (!contextText.trim() && contextFiles.length === 0)}
+                    className="w-full bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white px-4 py-3 rounded-xl font-semibold transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {uploadingContext ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-5 h-5" />
+                        Add to Context
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {!showAddContext && (
+                <p className="text-sm text-blue-600/70">
+                  Click the + button to add text or files to your project context
+                </p>
+              )}
             </div>
           </div>
 
