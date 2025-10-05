@@ -2,6 +2,10 @@ import os
 import numpy as np
 from google import genai
 from typing import Union, List
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class EmbeddingService:
     """

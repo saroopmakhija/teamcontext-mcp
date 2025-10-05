@@ -21,3 +21,31 @@ class ContextResponse(BaseModel):
     similarity_score: Optional[float] = None
     metadata: dict
     created_at: datetime
+
+# New schemas for chunking workflow
+class ChunkInput(BaseModel):
+    """Input for chunking service - represents a single chunk of content"""
+    content: str
+    metadata: Optional[Dict[str, Any]] = {}
+
+class ChunkAndEmbedRequest(BaseModel):
+    """Request to chunk content, generate embeddings, and store in vector DB"""
+    project_id: str  # REQUIRED: All vectors must be project-specific
+    chunks: List[ChunkInput]  # List of pre-chunked content from chunking service
+    source: str = "mcp_client"
+    tags: Optional[List[str]] = []
+
+class VectorRetrievalRequest(BaseModel):
+    """Request to retrieve similar vectors from project-specific vector DB"""
+    project_id: str  # REQUIRED: Only search within this project
+    query: str  # The query to search for
+    limit: int = 10
+    similarity_threshold: float = 0.5
+
+class VectorRetrievalResponse(BaseModel):
+    """Response with similar chunks from vector DB"""
+    chunk_id: str
+    content: str
+    similarity_score: float
+    metadata: Dict[str, Any]
+    created_at: datetime
