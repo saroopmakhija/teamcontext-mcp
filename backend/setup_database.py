@@ -33,7 +33,7 @@ async def setup_database():
         database = db.client[settings.mongodb_db_name]
         
         # Create collections if they don't exist
-        collections = ['users', 'projects', 'chunks', 'vectordb', 'analytics']
+        collections = ['users', 'projects', 'chunks', 'contexts', 'vectordb', 'analytics']
         
         for collection_name in collections:
             if collection_name not in await database.list_collection_names():
@@ -80,6 +80,13 @@ async def create_indexes(database):
     await database.chunks.create_index([("content", "text")])
     print("✅ Chunks indexes created")
 
+    # Contexts collection indexes (for embeddings and vector search)
+    await database.contexts.create_index("metadata.project_id")
+    await database.contexts.create_index("metadata.created_by")
+    await database.contexts.create_index("created_at")
+    await database.contexts.create_index("accessed_count")
+    print("✅ Contexts indexes created")
+
 async def create_sample_data(database):
     """Create sample data for testing"""
     print("📝 Creating sample data...")
@@ -101,12 +108,12 @@ async def create_sample_data(database):
                 "id": str(ObjectId()),
                 "name": "Default Key",
                 "key": "sample_api_key_12345",
-                "created_at": datetime.now(datetime.UTC)
+                "created_at": datetime.utcnow()
             }
         ],
         "projects": [],
-        "created_at": datetime.now(datetime.UTC),
-        "updated_at": datetime.now(datetime.UTC)
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
     }
     
     # Sample project
@@ -118,8 +125,8 @@ async def create_sample_data(database):
         "owner_id": str(sample_user["_id"]),
         "owner_name": sample_user["name"],
         "contributors": [str(sample_user["_id"])],
-        "created_at": datetime.now(datetime.UTC),
-        "updated_at": datetime.now(datetime.UTC)
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
     }
     
     # Sample chunk
@@ -134,8 +141,8 @@ async def create_sample_data(database):
             "tags": ["sample", "test"],
             "word_count": 15
         },
-        "created_at": datetime.now(datetime.UTC),
-        "updated_at": datetime.now(datetime.UTC)
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
     }
     
     # Insert sample data

@@ -2,7 +2,6 @@ import os
 import numpy as np
 import google.generativeai as genai
 from typing import Union, List
-from app.config import settings
 
 class EmbeddingService:
     """
